@@ -1,0 +1,1929 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>SUSHI MERGE — 寿司進化スライドパズル</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Noto+Sans+JP:wght@500;700;800;900&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Inter"', 'sans-serif'],
+            display: ['"Noto Sans JP"', '"Inter"', 'sans-serif'],
+          },
+          colors: {
+            cream: {
+              bg: '#FAF6EE',
+              card: '#F3ECE0',
+              deep: '#E6DCCB',
+            },
+            sumi: {
+              DEFAULT: '#241E1A',
+              muted: '#6E6259',
+              light: '#9A8C80',
+            },
+            hinoki: {
+              frame: '#C99E67',
+              dark: '#9C7242',
+              light: '#DFBA87',
+            },
+            vermilion: {
+              DEFAULT: '#C84B31',
+              hover: '#AE3D26',
+            },
+          },
+          boxShadow: {
+            board: '0 14px 30px -10px rgba(66, 45, 22, 0.24), inset 0 2px 4px rgba(255, 255, 255, 0.38)',
+            tile: '0 4px 10px -2px rgba(36, 30, 26, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+            panel: '0 6px 18px -6px rgba(36, 30, 26, 0.09)',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* ========================================================================
+       カスタムCSS（アニメーション・和紙風背景・タッチ制御）
+       ======================================================================== */
+    html,
+    body {
+      height: 100dvh;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #FAF6EE;
+      color: #241E1A;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .washi-bg {
+      background-color: #FAF6EE;
+      background-image:
+        radial-gradient(rgba(156, 114, 66, 0.08) 1px, transparent 0),
+        radial-gradient(rgba(200, 75, 49, 0.045) 1px, transparent 0);
+      background-size: 24px 24px;
+      background-position: 0 0, 12px 12px;
+    }
+
+    .board-touch-lock {
+      touch-action: none;
+    }
+
+    /* 新規タイル出現アニメーション */
+    @keyframes tilePopIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.32);
+      }
+      65% {
+        opacity: 1;
+        transform: scale(1.08);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* 合体バウンスアニメーション */
+    @keyframes tileMergeBounce {
+      0% {
+        transform: scale(1);
+      }
+      35% {
+        transform: scale(1.22);
+      }
+      68% {
+        transform: scale(0.95);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* 合体きらめきリング */
+    @keyframes mergeSparkleRing {
+      0% {
+        opacity: 0.85;
+        transform: scale(0.65);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.45);
+      }
+    }
+
+    /* ステージ12（伝説の超豪華寿司盛り）の黄金オーラ */
+    @keyframes legendaryPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 2px rgba(212, 160, 23, 0.55), 0 6px 16px rgba(212, 160, 23, 0.28);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(235, 185, 45, 0.35), 0 8px 22px rgba(200, 75, 49, 0.25);
+      }
+    }
+
+    /* +pts 浮き上がりアニメーション */
+    @keyframes scoreFloatUp {
+      0% {
+        opacity: 0;
+        transform: translateY(6px) scale(0.9);
+      }
+      18% {
+        opacity: 1;
+        transform: translateY(0px) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.96);
+      }
+    }
+
+    /* ステージ7以上合体時の盤面シェイク */
+    @keyframes boardHighMergeShake {
+      0%, 100% {
+        transform: translate3d(0, 0, 0);
+      }
+      25% {
+        transform: translate3d(-3px, 1.5px, 0);
+      }
+      50% {
+        transform: translate3d(3px, -1.5px, 0);
+      }
+      75% {
+        transform: translate3d(-1.5px, -1px, 0);
+      }
+    }
+
+    .animate-tile-spawn {
+      animation: tilePopIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .animate-tile-merge {
+      animation: tileMergeBounce 260ms cubic-bezier(0.22, 1.25, 0.36, 1) both;
+    }
+
+    .animate-merge-ring {
+      animation: mergeSparkleRing 380ms ease-out forwards;
+    }
+
+    .animate-legendary {
+      animation: legendaryPulse 2.2s ease-in-out infinite;
+    }
+
+    .animate-score-gain {
+      animation: scoreFloatUp 740ms ease-out forwards;
+    }
+
+    .animate-board-shake {
+      animation: boardHighMergeShake 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #F3ECE0;
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #C99E67;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+
+<body class="washi-bg font-sans text-sumi antialiased selection:bg-vermilion/20">
+  <!-- アプリルートコンテナ（スマホ縦画面最適化＆Safe Area対応） -->
+  <div
+    id="app"
+    class="h-[100dvh] w-full max-w-[460px] mx-auto px-3.5 py-2.5 sm:py-3.5 flex flex-col justify-between gap-2 overflow-x-hidden"
+    style="padding-top: max(0.625rem, env(safe-area-inset-top)); padding-bottom: max(0.625rem, env(safe-area-inset-bottom)); padding-left: max(0.875rem, env(safe-area-inset-left)); padding-right: max(0.875rem, env(safe-area-inset-right));"
+  >
+    <!-- ======================================================================
+         上部ヘッダー：タイトル・最高進化段階・スコア＆ベストスコア
+         ====================================================================== -->
+    <header class="flex items-center justify-between gap-2 shrink-0">
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-vermilion"></span>
+          <span class="text-[10px] sm:text-[11px] font-bold tracking-widest text-sumi-muted uppercase">
+            和風進化パズル
+          </span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-black tracking-tight text-sumi leading-tight truncate">
+          SUSHI MERGE
+        </h1>
+        <div class="mt-0.5 flex items-center gap-1.5">
+          <span class="text-[11px] text-sumi-muted">最高段階:</span>
+          <span
+            id="headerMaxStageBadge"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-cream-card border border-hinoki-frame/45 text-sumi"
+          >
+            <span id="headerMaxStageIcon" class="inline-flex w-3.5 h-3.5 items-center justify-center"></span>
+            <span id="headerMaxStageLabel">Lv.1 おにぎり</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- スコア表示パネル -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div class="relative bg-cream-card border border-hinoki-frame/35 rounded-2xl px-2.5 sm:px-3 py-1.5 text-center min-w-[72px] sm:min-w-[82px] shadow-panel">
+          <div class="text-[10px] font-bold tracking-wider text-sumi-muted">スコア</div>
+          <div id="scoreValue" class="text-base sm:text-lg font-extrabold text-sumi tabular-nums leading-tight">0</div>
+          <div
+            id="scoreDeltaPopup"
+            class="pointer-events-none absolute -top-2.5 right-1.5 text-xs font-black text-vermilion bg-cream-bg/95 px-1.5 py-0.5 rounded-full border border-vermilion/25 shadow-sm opacity-0"
+          ></div>
+        </div>
+
+        <div class="bg-cream-card border border-hinoki-frame/45 rounded-2xl px-2.5 sm:px-3 py-1.5 text-center min-w-[72px] sm:min-w-[82px] shadow-panel">
+          <div class="text-[10px] font-bold tracking-wider text-hinoki-dark">ベスト</div>
+          <div id="bestScoreValue" class="text-base sm:text-lg font-extrabold text-hinoki-dark tabular-nums leading-tight">0</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ======================================================================
+         中央エリア：4×4 パズル盤面
+         ====================================================================== -->
+    <main class="flex-1 min-h-0 flex items-center justify-center w-full">
+      <div
+        id="boardFrame"
+        class="board-touch-lock relative aspect-square w-full max-w-[390px] max-h-full bg-hinoki-frame rounded-3xl p-2.5 sm:p-3 shadow-board border-2 border-hinoki-dark/40"
+        role="application"
+        aria-label="4かける4の寿司進化パズル盤面"
+      >
+        <!-- 16マスの背景グリッド -->
+        <div id="gridBackground" class="grid grid-cols-4 grid-rows-4 gap-2 sm:gap-2.5 w-full h-full"></div>
+
+        <!-- タイル描画レイヤー -->
+        <div id="tileLayer" class="pointer-events-none absolute inset-2.5 sm:inset-3"></div>
+
+        <!-- 盤面通知トースト -->
+        <div
+          id="boardToast"
+          class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-sumi/90 text-cream-bg text-xs font-bold shadow-lg opacity-0 transition-opacity duration-200 whitespace-nowrap"
+        ></div>
+
+        <!-- ゲームオーバー結果オーバーレイ -->
+        <div
+          id="gameOverOverlay"
+          class="hidden absolute inset-0 z-30 rounded-3xl bg-cream-bg/93 backdrop-blur-[3px] flex flex-col items-center justify-center p-4 text-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="gameOverTitle"
+        >
+          <span class="px-2.5 py-0.5 rounded-full bg-vermilion/12 text-vermilion text-xs font-extrabold tracking-wide mb-1.5">
+            合体できる手がなくなりました
+          </span>
+          <h2 id="gameOverTitle" class="text-2xl font-black text-sumi mb-3">
+            ゲームオーバー
+          </h2>
+
+          <div class="w-full max-w-[270px] bg-cream-card border border-hinoki-frame/50 rounded-2xl p-3 mb-4 shadow-panel">
+            <div class="flex items-center justify-center gap-3 mb-2.5 pb-2.5 border-b border-hinoki-frame/25">
+              <div id="resultStageIcon" class="w-12 h-12 rounded-xl bg-cream-bg flex items-center justify-center border border-hinoki-frame/30 shrink-0 p-1"></div>
+              <div class="text-left min-w-0">
+                <div class="text-[10px] font-bold text-sumi-muted">最高到達段階</div>
+                <div id="resultStageName" class="text-sm font-extrabold text-sumi truncate">Lv.1 おにぎり</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-center">
+              <div class="bg-cream-bg rounded-xl py-1.5 px-2">
+                <div class="text-[10px] font-bold text-sumi-muted">今回のスコア</div>
+                <div id="resultFinalScore" class="text-base font-black text-sumi tabular-nums">0</div>
+              </div>
+              <div class="bg-cream-bg rounded-xl py-1.5 px-2">
+                <div class="text-[10px] font-bold text-hinoki-dark">ベストスコア</div>
+                <div id="resultBestScore" class="text-base font-black text-hinoki-dark tabular-nums">0</div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            id="retryButton"
+            type="button"
+            class="w-full max-w-[230px] py-3 px-5 rounded-2xl bg-vermilion hover:bg-vermilion-hover active:scale-[0.98] text-white font-extrabold text-sm sm:text-base shadow-md transition cursor-pointer"
+          >
+            もう一度遊ぶ
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ======================================================================
+         下部コントロールバー：リスタートボタン＆遊び方・進化図鑑ボタン
+         ====================================================================== -->
+    <footer class="grid grid-cols-2 gap-2.5 shrink-0 pb-0.5">
+      <button
+        id="restartButton"
+        type="button"
+        class="flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-3 rounded-2xl bg-cream-card hover:bg-cream-deep active:scale-[0.98] border border-hinoki-frame/50 text-sumi font-extrabold text-xs sm:text-sm shadow-panel transition cursor-pointer"
+      >
+        <svg class="w-4 h-4 text-vermilion shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+        <span>リスタート</span>
+      </button>
+
+      <button
+        id="howToPlayButton"
+        type="button"
+        class="flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-3 rounded-2xl bg-sumi hover:bg-sumi/90 active:scale-[0.98] text-cream-bg font-extrabold text-xs sm:text-sm shadow-panel transition cursor-pointer"
+      >
+        <svg class="w-4 h-4 text-hinoki-light shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <circle cx="12" cy="17" r="0.8" fill="currentColor" />
+        </svg>
+        <span>遊び方・進化図鑑</span>
+      </button>
+    </footer>
+  </div>
+
+  <!-- ========================================================================
+       遊び方＆全12段階進化図鑑モーダル
+       ======================================================================== -->
+  <div
+    id="howToPlayModal"
+    class="hidden fixed inset-0 z-50 bg-sumi/55 backdrop-blur-[2px] flex items-center justify-center p-3.5"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalTitle"
+  >
+    <div class="w-full max-w-[430px] max-h-[88dvh] bg-cream-bg border-2 border-hinoki-frame/60 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 bg-cream-card border-b border-hinoki-frame/30 shrink-0">
+        <div>
+          <span class="text-[10px] font-bold tracking-wider text-vermilion">ルール＆全12段階</span>
+          <h2 id="modalTitle" class="text-base sm:text-lg font-black text-sumi">遊び方・寿司進化図鑑</h2>
+        </div>
+        <button
+          id="closeModalButton"
+          type="button"
+          class="w-9 h-9 rounded-full bg-cream-bg hover:bg-cream-deep border border-hinoki-frame/40 flex items-center justify-center text-sumi font-bold transition cursor-pointer"
+          aria-label="閉じる"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="custom-scroll overflow-y-auto p-4 space-y-4 text-xs sm:text-sm text-sumi">
+        <div class="bg-cream-card/85 border border-hinoki-frame/35 rounded-2xl p-3 space-y-1.5">
+          <div class="font-extrabold text-sumi flex items-center gap-1.5">
+            <span class="w-1.5 h-4 rounded-full bg-vermilion inline-block"></span>
+            基本ルール
+          </div>
+          <ul class="space-y-1 text-xs text-sumi-muted leading-relaxed list-disc pl-4">
+            <li>上下左右に<strong class="text-sumi">スワイプ</strong>（PCでは矢印キー・WASD）すると、すべての食べ物がスライドします。</li>
+            <li>同じ種類の食べ物がぶつかると、<strong class="text-sumi">1段階上の料理</strong>に合体してスコアを獲得します。</li>
+            <li>1回の移動で複数ペアが合体できますが、1つの食べ物が同じ移動で2回以上合体することはありません（例：[1,1,1] → [2,1]）。</li>
+            <li>盤面が動いたときだけ新しい食べ物が1つ出現します。16マスすべて埋まり、合体できなくなるとゲームオーバーです。</li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="font-extrabold text-sumi mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span class="w-1.5 h-4 rounded-full bg-hinoki-dark inline-block"></span>
+              全12段階の進化ルート
+            </span>
+            <span class="text-[11px] font-bold text-sumi-muted">Lv.1 → Lv.12</span>
+          </div>
+          <div id="evolutionChartList" class="grid grid-cols-1 gap-2"></div>
+        </div>
+
+        <div class="bg-cream-card/70 border border-hinoki-frame/35 rounded-2xl p-3 flex items-center justify-between gap-2">
+          <div class="text-xs text-sumi-muted">
+            <div class="font-bold text-sumi">保存データの初期化</div>
+            <div>進行中データや記録をリセットして最初から遊びます</div>
+          </div>
+          <button
+            id="resetSavedDataButton"
+            type="button"
+            class="px-3 py-1.5 rounded-xl bg-cream-bg hover:bg-vermilion hover:text-white border border-vermilion/40 text-vermilion text-xs font-extrabold transition shrink-0 cursor-pointer"
+          >
+            データ初期化
+          </button>
+        </div>
+      </div>
+
+      <div class="p-3 bg-cream-card border-t border-hinoki-frame/30 shrink-0">
+        <button
+          id="modalStartButton"
+          type="button"
+          class="w-full py-2.5 rounded-2xl bg-vermilion hover:bg-vermilion-hover active:scale-[0.99] text-white font-extrabold text-sm transition cursor-pointer"
+        >
+          パズルに戻る
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       ゲームロジック＆UIコントローラー
+       ======================================================================== -->
+  <script>
+    'use strict';
+
+    /* ======================================================================
+       1. 全12段階の定義とオリジナルSVGイラスト（外部ID依存なし・全ブラウザ安定表示）
+       ====================================================================== */
+    const SUSHI_STAGES = Object.freeze([
+      {
+        tier: 1,
+        name: 'おにぎり',
+        shortName: 'おにぎり',
+        points: 20,
+        tileBg: 'linear-gradient(155deg, #FFFDF9 0%, #F2ECE0 100%)',
+        borderColor: '#CBBFA9',
+        badgeBg: '#E6DDD0',
+        badgeText: '#3B322C',
+        accent: '#C84B31',
+      },
+      {
+        tier: 2,
+        name: 'たまご寿司',
+        shortName: 'たまご寿司',
+        points: 40,
+        tileBg: 'linear-gradient(155deg, #FFF9DF 0%, #F7DF84 100%)',
+        borderColor: '#DFB63E',
+        badgeBg: '#F6E299',
+        badgeText: '#5A3F05',
+        accent: '#D99B16',
+      },
+      {
+        tier: 3,
+        name: 'いなり寿司',
+        shortName: 'いなり寿司',
+        points: 80,
+        tileBg: 'linear-gradient(155deg, #F7DFC2 0%, #DCA668 100%)',
+        borderColor: '#B37939',
+        badgeBg: '#EAD0AF',
+        badgeText: '#4D3011',
+        accent: '#9E6327',
+      },
+      {
+        tier: 4,
+        name: 'サーモン寿司',
+        shortName: 'サーモン寿司',
+        points: 160,
+        tileBg: 'linear-gradient(155deg, #FFE8DC 0%, #F7A57C 100%)',
+        borderColor: '#DE7645',
+        badgeBg: '#FAD1BC',
+        badgeText: '#67250B',
+        accent: '#E06432',
+      },
+      {
+        tier: 5,
+        name: 'まぐろ寿司',
+        shortName: 'まぐろ寿司',
+        points: 320,
+        tileBg: 'linear-gradient(155deg, #FDE2E2 0%, #EA8282 100%)',
+        borderColor: '#C54646',
+        badgeBg: '#F7C2C2',
+        badgeText: '#5C1515',
+        accent: '#C23636',
+      },
+      {
+        tier: 6,
+        name: 'えび寿司',
+        shortName: 'えび寿司',
+        points: 640,
+        tileBg: 'linear-gradient(155deg, #FFF0E5 0%, #F6AE8E 100%)',
+        borderColor: '#D6663E',
+        badgeBg: '#FAD6C4',
+        badgeText: '#611F0A',
+        accent: '#D64E24',
+      },
+      {
+        tier: 7,
+        name: 'いくら軍艦',
+        shortName: 'いくら軍艦',
+        points: 1280,
+        tileBg: 'linear-gradient(155deg, #FFE9D6 0%, #F1974C 100%)',
+        borderColor: '#C56114',
+        badgeBg: '#FACFA8',
+        badgeText: '#592403',
+        accent: '#D85A0A',
+      },
+      {
+        tier: 8,
+        name: 'うなぎ寿司',
+        shortName: 'うなぎ寿司',
+        points: 2560,
+        tileBg: 'linear-gradient(155deg, #EFE1D3 0%, #B28259 100%)',
+        borderColor: '#764D2C',
+        badgeBg: '#DEC5AD',
+        badgeText: '#38210F',
+        accent: '#6B4223',
+      },
+      {
+        tier: 9,
+        name: '豪華な握り寿司',
+        shortName: '豪華な握り',
+        points: 5120,
+        tileBg: 'linear-gradient(155deg, #FFF5E4 0%, #F2C785 100%)',
+        borderColor: '#C0863A',
+        badgeBg: '#F7DEB6',
+        badgeText: '#4B300D',
+        accent: '#B57524',
+      },
+      {
+        tier: 10,
+        name: '海鮮丼',
+        shortName: '海鮮丼',
+        points: 10240,
+        tileBg: 'linear-gradient(155deg, #EAF5F1 0%, #B3DBD0 100%)',
+        borderColor: '#569583',
+        badgeBg: '#CCE8E0',
+        badgeText: '#174438',
+        accent: '#2D7D67',
+      },
+      {
+        tier: 11,
+        name: '豪華な舟盛り',
+        shortName: '豪華な舟盛り',
+        points: 20480,
+        tileBg: 'linear-gradient(155deg, #E8F1FA 0%, #AFCEEC 100%)',
+        borderColor: '#4A7EB0',
+        badgeBg: '#C8DFF4',
+        badgeText: '#153758',
+        accent: '#2B68A3',
+      },
+      {
+        tier: 12,
+        name: '伝説の超豪華寿司盛り',
+        shortName: '伝説の寿司盛り',
+        points: 40960,
+        tileBg: 'linear-gradient(155deg, #FFF8DC 0%, #F6D068 55%, #E69666 100%)',
+        borderColor: '#C84B31',
+        badgeBg: '#FFEFB2',
+        badgeText: '#5A170A',
+        accent: '#C84B31',
+      },
+    ]);
+
+    function getSushiStageSVG(tier) {
+      const safeTier = Number.isInteger(tier) && tier >= 1 && tier <= 12 ? tier : 1;
+      switch (safeTier) {
+        case 1:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="65" rx="23" ry="5" fill="#241E1A" fill-opacity="0.14" />
+              <path d="M40 14 C44 14 47 16 49 20 L66 54 C68 58 65 63 60 63 L20 63 C15 63 12 58 14 54 L31 20 C33 16 36 14 40 14 Z"
+                    fill="#FFFFFF" stroke="#857667" stroke-width="2.3" />
+              <path d="M25 44 L55 44 L60 63 L20 63 Z" fill="#232629" />
+              <circle cx="40" cy="31" r="4.8" fill="#C84B31" />
+              <circle cx="31" cy="37" r="1.5" fill="#4A3F35" />
+              <circle cx="49" cy="36" r="1.5" fill="#4A3F35" />
+              <circle cx="37" cy="23" r="1.4" fill="#4A3F35" />
+            </svg>
+          `;
+        case 2:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="64" rx="26" ry="5.5" fill="#241E1A" fill-opacity="0.14" />
+              <rect x="15" y="42" width="50" height="19" rx="9" fill="#FFFDF8" stroke="#968777" stroke-width="2" />
+              <rect x="13" y="23" width="54" height="23" rx="8" fill="#F8C834" stroke="#B07E0E" stroke-width="2.1" />
+              <path d="M18 30 C28 27 52 33 62 29" stroke="#DC9F14" stroke-width="2.1" fill="none" stroke-linecap="round" />
+              <path d="M18 38 C30 35 50 41 62 37" stroke="#DC9F14" stroke-width="2.1" fill="none" stroke-linecap="round" />
+              <rect x="34" y="23" width="12" height="38" rx="2" fill="#232629" />
+            </svg>
+          `;
+        case 3:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="65" rx="25" ry="5" fill="#241E1A" fill-opacity="0.14" />
+              <path d="M17 57 C14 40 22 22 40 20 C58 22 66 40 63 57 C62 61 57 62 40 62 C23 62 18 61 17 57 Z"
+                    fill="#C98744" stroke="#7A491A" stroke-width="2.2" />
+              <path d="M21 29 C30 22 50 22 59 29 L55 37 C47 32 33 32 25 37 Z" fill="#FFFDF8" stroke="#968777" stroke-width="1.6" />
+              <circle cx="34" cy="29" r="1.5" fill="#857667" />
+              <circle cx="42" cy="27" r="1.5" fill="#857667" />
+              <circle cx="48" cy="30" r="1.5" fill="#857667" />
+              <path d="M25 45 C35 42 45 42 55 45" stroke="#A2652A" stroke-width="2" fill="none" stroke-linecap="round" />
+            </svg>
+          `;
+        case 4:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="64" rx="26" ry="5.5" fill="#241E1A" fill-opacity="0.14" />
+              <rect x="16" y="42" width="48" height="19" rx="9" fill="#FFFDF8" stroke="#968777" stroke-width="2" />
+              <path d="M13 35 C13 23 26 19 40 19 C54 19 67 23 67 35 C67 42 58 45 40 45 C22 45 13 42 13 35 Z"
+                    fill="#F27D42" stroke="#A43F13" stroke-width="2.1" />
+              <path d="M23 25 C27 31 27 36 23 41" stroke="#FFE0CC" stroke-width="2.2" fill="none" stroke-linecap="round" />
+              <path d="M35 23 C39 30 39 37 35 42" stroke="#FFE0CC" stroke-width="2.2" fill="none" stroke-linecap="round" />
+              <path d="M47 23 C51 30 51 37 47 42" stroke="#FFE0CC" stroke-width="2.2" fill="none" stroke-linecap="round" />
+              <path d="M58 26 C60 31 60 36 58 40" stroke="#FFE0CC" stroke-width="2" fill="none" stroke-linecap="round" />
+            </svg>
+          `;
+        case 5:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="64" rx="26" ry="5.5" fill="#241E1A" fill-opacity="0.14" />
+              <rect x="16" y="42" width="48" height="19" rx="9" fill="#FFFDF8" stroke="#968777" stroke-width="2" />
+              <path d="M13 35 C13 23 26 19 40 19 C54 19 67 23 67 35 C67 42 58 45 40 45 C22 45 13 42 13 35 Z"
+                    fill="#C93434" stroke="#751414" stroke-width="2.1" />
+              <path d="M22 26 C32 23 48 23 58 26" stroke="#F8A3A3" stroke-width="2.2" fill="none" stroke-linecap="round" />
+              <path d="M26 33 C36 31 44 31 54 33" stroke="#EB7777" stroke-width="1.8" fill="none" stroke-linecap="round" />
+            </svg>
+          `;
+        case 6:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="64" rx="26" ry="5.5" fill="#241E1A" fill-opacity="0.14" />
+              <rect x="16" y="43" width="48" height="18" rx="9" fill="#FFFDF8" stroke="#968777" stroke-width="2" />
+              <path d="M61 32 L71 25 L73 31 L65 36 Z" fill="#F26D44" stroke="#993414" stroke-width="1.6" />
+              <path d="M14 35 C14 23 26 18 40 18 C53 18 62 24 62 34 C62 41 53 44 40 44 C26 44 14 41 14 35 Z"
+                    fill="#F56A42" stroke="#993414" stroke-width="2.1" />
+              <path d="M25 19 L25 43" stroke="#FFF9F4" stroke-width="3.2" />
+              <path d="M37 18.5 L37 43.5" stroke="#FFF9F4" stroke-width="3.2" />
+              <path d="M49 20 L49 42.5" stroke="#FFF9F4" stroke-width="3.2" />
+            </svg>
+          `;
+        case 7:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="65" rx="24" ry="5" fill="#241E1A" fill-opacity="0.15" />
+              <circle cx="28" cy="29" r="6.2" fill="#EE5A14" stroke="#8B2B03" stroke-width="1.4" />
+              <circle cx="38" cy="26" r="6.5" fill="#F46B1E" stroke="#8B2B03" stroke-width="1.4" />
+              <circle cx="49" cy="29" r="6.2" fill="#EE5A14" stroke="#8B2B03" stroke-width="1.4" />
+              <circle cx="33" cy="34" r="6.2" fill="#F67928" stroke="#8B2B03" stroke-width="1.4" />
+              <circle cx="44" cy="34" r="6.2" fill="#EE5A14" stroke="#8B2B03" stroke-width="1.4" />
+              <circle cx="36.5" cy="24.2" r="1.7" fill="#FFE6C9" />
+              <circle cx="26.5" cy="27.2" r="1.5" fill="#FFE6C9" />
+              <circle cx="47.5" cy="27.2" r="1.5" fill="#FFE6C9" />
+              <rect x="18" y="36" width="44" height="25" rx="6" fill="#232629" stroke="#111315" stroke-width="2" />
+              <line x1="22" y1="42" x2="58" y2="42" stroke="#3F454C" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          `;
+        case 8:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="64" rx="26" ry="5.5" fill="#241E1A" fill-opacity="0.15" />
+              <rect x="16" y="43" width="48" height="18" rx="9" fill="#FFFDF8" stroke="#968777" stroke-width="2" />
+              <path d="M12 35 C12 22 25 18 40 18 C55 18 68 23 68 35 C68 42 57 45 40 45 C23 45 12 42 12 35 Z"
+                    fill="#5C3419" stroke="#2B1507" stroke-width="2.1" />
+              <path d="M20 26 C32 22 48 22 60 26" stroke="#C78343" stroke-width="2.4" fill="none" stroke-linecap="round" />
+              <circle cx="30" cy="33" r="1.4" fill="#FFF8E7" />
+              <circle cx="42" cy="31" r="1.4" fill="#FFF8E7" />
+              <circle cx="52" cy="34" r="1.4" fill="#FFF8E7" />
+              <circle cx="37" cy="37" r="1.7" fill="#4C9A4A" />
+            </svg>
+          `;
+        case 9:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <rect x="11" y="52" width="58" height="8" rx="3" fill="#B8864B" stroke="#704B1F" stroke-width="1.8" />
+              <rect x="17" y="60" width="8" height="6" rx="1.5" fill="#8D6130" />
+              <rect x="55" y="60" width="8" height="6" rx="1.5" fill="#8D6130" />
+              <rect x="15" y="42" width="16" height="10" rx="4" fill="#FFFDF8" stroke="#857667" stroke-width="1.4" />
+              <rect x="14" y="33" width="18" height="11" rx="5" fill="#C93434" stroke="#751414" stroke-width="1.5" />
+              <rect x="32" y="41" width="16" height="11" rx="4" fill="#FFFDF8" stroke="#857667" stroke-width="1.4" />
+              <rect x="31" y="29" width="18" height="13" rx="5" fill="#F8C834" stroke="#B07E0E" stroke-width="1.5" />
+              <rect x="38" y="29" width="4" height="23" fill="#232629" />
+              <rect x="49" y="42" width="16" height="10" rx="4" fill="#FFFDF8" stroke="#857667" stroke-width="1.4" />
+              <rect x="48" y="33" width="18" height="11" rx="5" fill="#F27D42" stroke="#A43F13" stroke-width="1.5" />
+            </svg>
+          `;
+        case 10:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="65" rx="24" ry="4.5" fill="#241E1A" fill-opacity="0.15" />
+              <path d="M16 36 C12 25 22 18 31 24 C25 31 21 36 16 36 Z" fill="#469E56" stroke="#22582B" stroke-width="1.5" />
+              <path d="M23 39 C25 26 37 22 45 27 L41 40 Z" fill="#F27D42" stroke="#993A10" stroke-width="1.6" />
+              <path d="M40 39 C43 25 56 23 61 32 L55 40 Z" fill="#C93434" stroke="#751414" stroke-width="1.6" />
+              <circle cx="34" cy="34" r="3.6" fill="#F46B1E" stroke="#8B2B03" stroke-width="1.1" />
+              <circle cx="41" cy="35" r="3.6" fill="#EE5A14" stroke="#8B2B03" stroke-width="1.1" />
+              <circle cx="37.5" cy="30.5" r="3.5" fill="#F67928" stroke="#8B2B03" stroke-width="1.1" />
+              <path d="M15 39 L65 39 C64 54 53 62 40 62 C27 62 16 54 15 39 Z" fill="#283845" stroke="#141E26" stroke-width="2" />
+              <path d="M17 44 L63 44" stroke="#D4AF37" stroke-width="2" />
+            </svg>
+          `;
+        case 11:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <ellipse cx="40" cy="65" rx="28" ry="5" fill="#241E1A" fill-opacity="0.15" />
+              <line x1="40" y1="13" x2="40" y2="38" stroke="#895727" stroke-width="2.2" />
+              <path d="M41 14 L57 20 L41 26 Z" fill="#C84B31" />
+              <path d="M20 39 L29 27 L36 39 Z" fill="#F27D42" stroke="#993A10" stroke-width="1.4" />
+              <path d="M44 39 L51 27 L60 39 Z" fill="#C93434" stroke="#751414" stroke-width="1.4" />
+              <circle cx="40" cy="35" r="4.5" fill="#F46B1E" stroke="#8B2B03" stroke-width="1.2" />
+              <path d="M10 40 L70 40 L60 58 C58 61 54 62 40 62 C26 62 22 61 20 58 Z"
+                    fill="#C98A4B" stroke="#70451B" stroke-width="2.1" />
+              <path d="M14 45 L66 45" stroke="#E5B37B" stroke-width="1.8" />
+            </svg>
+          `;
+        case 12:
+        default:
+          return `
+            <svg viewBox="0 0 80 80" width="100%" height="100%" class="block" aria-hidden="true">
+              <g stroke="#E6A817" stroke-width="2.1" stroke-linecap="round">
+                <line x1="40" y1="6" x2="40" y2="13" />
+                <line x1="20" y1="12" x2="25" y2="18" />
+                <line x1="60" y1="12" x2="55" y2="18" />
+                <line x1="10" y1="26" x2="16" y2="29" />
+                <line x1="70" y1="26" x2="64" y2="29" />
+              </g>
+              <ellipse cx="40" cy="62" rx="28" ry="6" fill="#D49B27" stroke="#805708" stroke-width="2" />
+              <path d="M14 46 L66 46 L60 60 L20 60 Z" fill="#A82828" stroke="#5E0E0E" stroke-width="2" />
+              <path d="M17 49 L63 49" stroke="#FFD86B" stroke-width="2" />
+              <rect x="17" y="34" width="15" height="12" rx="4" fill="#F27D42" stroke="#8B340E" stroke-width="1.5" />
+              <rect x="33" y="29" width="14" height="17" rx="4" fill="#F8C834" stroke="#966907" stroke-width="1.5" />
+              <rect x="48" y="34" width="15" height="12" rx="4" fill="#C93434" stroke="#701313" stroke-width="1.5" />
+              <circle cx="36" cy="24" r="3.6" fill="#F46B1E" stroke="#782202" stroke-width="1.1" />
+              <circle cx="43" cy="24" r="3.6" fill="#EE5A14" stroke="#782202" stroke-width="1.1" />
+              <circle cx="39.5" cy="20" r="3.8" fill="#FFD15C" stroke="#966907" stroke-width="1.2" />
+            </svg>
+          `;
+      }
+    }
+
+    /* ======================================================================
+       2. SushiMergeEngine：ゲームロジック＆安全な永続化
+       ====================================================================== */
+    const STORAGE_KEYS = Object.freeze({
+      BEST_SCORE: 'sushi_merge_best_score_v1',
+      MAX_STAGE: 'sushi_merge_max_stage_v1',
+      ACTIVE_SESSION: 'sushi_merge_active_session_v1',
+    });
+
+    const DIRECTIONS = Object.freeze({
+      UP: 'UP',
+      DOWN: 'DOWN',
+      LEFT: 'LEFT',
+      RIGHT: 'RIGHT',
+    });
+
+    class SushiMergeEngine {
+      constructor(size = 4) {
+        this.size = size;
+        this.maxTier = SUSHI_STAGES.length; // 12
+        this.nextTileId = 1;
+        this.bestScore = this.loadBestScore();
+        this.maxStage = this.loadMaxStage();
+        this.score = 0;
+        this.isGameOver = false;
+        this.grid = this.createEmptyGrid();
+
+        const restored = this.restoreActiveSession();
+        if (!restored || this.getAllTiles().length === 0) {
+          this.startNewGame();
+        }
+      }
+
+      loadBestScore() {
+        try {
+          const raw = window.localStorage.getItem(STORAGE_KEYS.BEST_SCORE);
+          const parsed = raw ? parseInt(raw, 10) : 0;
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        } catch (_err) {
+          return 0;
+        }
+      }
+
+      loadMaxStage() {
+        try {
+          const raw = window.localStorage.getItem(STORAGE_KEYS.MAX_STAGE);
+          const parsed = raw ? parseInt(raw, 10) : 1;
+          if (Number.isFinite(parsed) && parsed >= 1 && parsed <= this.maxTier) {
+            return parsed;
+          }
+          return 1;
+        } catch (_err) {
+          return 1;
+        }
+      }
+
+      persistRecords() {
+        try {
+          window.localStorage.setItem(STORAGE_KEYS.BEST_SCORE, String(this.bestScore));
+          window.localStorage.setItem(STORAGE_KEYS.MAX_STAGE, String(this.maxStage));
+        } catch (_err) {
+          // ストレージ制限時は無視して継続
+        }
+      }
+
+      persistActiveSession() {
+        try {
+          if (this.isGameOver) {
+            this.clearActiveSession();
+            return;
+          }
+
+          const compactTiles = [];
+          for (let r = 0; r < this.size; r++) {
+            for (let c = 0; c < this.size; c++) {
+              const t = this.grid[r][c];
+              if (t && Number.isInteger(t.tier) && t.tier >= 1 && t.tier <= this.maxTier) {
+                compactTiles.push({ tier: t.tier, row: r, col: c });
+              }
+            }
+          }
+
+          if (compactTiles.length === 0) {
+            this.clearActiveSession();
+            return;
+          }
+
+          const payload = {
+            version: 1,
+            score: Number.isFinite(this.score) && this.score >= 0 ? Math.floor(this.score) : 0,
+            maxStage: Number.isInteger(this.maxStage) && this.maxStage >= 1 && this.maxStage <= this.maxTier
+              ? this.maxStage
+              : 1,
+            tiles: compactTiles,
+          };
+
+          window.localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, JSON.stringify(payload));
+        } catch (_err) {
+          // 無視
+        }
+      }
+
+      clearActiveSession() {
+        try {
+          window.localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
+        } catch (_err) {
+          // 無視
+        }
+      }
+
+      /**
+       * 保存データと記録をすべて初期化（破損データ対策にも利用）
+       */
+      resetAllSavedData() {
+        try {
+          window.localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
+          window.localStorage.removeItem(STORAGE_KEYS.BEST_SCORE);
+          window.localStorage.removeItem(STORAGE_KEYS.MAX_STAGE);
+        } catch (_err) {
+          // 無視
+        }
+        this.bestScore = 0;
+        this.maxStage = 1;
+        return this.startNewGame();
+      }
+
+      restoreActiveSession() {
+        try {
+          const raw = window.localStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION);
+          if (!raw) return false;
+
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.tiles) || parsed.tiles.length === 0) {
+            this.clearActiveSession();
+            return false;
+          }
+
+          const restoredGrid = this.createEmptyGrid();
+          for (const item of parsed.tiles) {
+            if (
+              !item ||
+              !Number.isInteger(item.row) ||
+              !Number.isInteger(item.col) ||
+              !Number.isInteger(item.tier) ||
+              item.row < 0 ||
+              item.row >= this.size ||
+              item.col < 0 ||
+              item.col >= this.size ||
+              item.tier < 1 ||
+              item.tier > this.maxTier ||
+              restoredGrid[item.row][item.col] !== null
+            ) {
+              this.clearActiveSession();
+              return false;
+            }
+
+            restoredGrid[item.row][item.col] = {
+              id: this.nextTileId++,
+              tier: item.tier,
+              row: item.row,
+              col: item.col,
+            };
+          }
+
+          const restoredScore = Number.isFinite(parsed.score) && parsed.score >= 0
+            ? Math.floor(parsed.score)
+            : 0;
+          const restoredMaxStage = Number.isInteger(parsed.maxStage) && parsed.maxStage >= 1 && parsed.maxStage <= this.maxTier
+            ? parsed.maxStage
+            : 1;
+
+          this.grid = restoredGrid;
+          this.score = restoredScore;
+          this.maxStage = Math.max(this.maxStage, restoredMaxStage);
+
+          for (const tile of this.getAllTiles()) {
+            if (tile.tier > this.maxStage) {
+              this.maxStage = tile.tier;
+            }
+          }
+
+          if (this.score > this.bestScore) {
+            this.bestScore = this.score;
+          }
+
+          this.isGameOver = !this.hasAvailableMoves();
+          if (this.isGameOver) {
+            this.clearActiveSession();
+          }
+
+          this.persistRecords();
+          return true;
+        } catch (_err) {
+          this.clearActiveSession();
+          return false;
+        }
+      }
+
+      createEmptyGrid() {
+        return Array.from({ length: this.size }, () => Array(this.size).fill(null));
+      }
+
+      startNewGame() {
+        this.clearActiveSession();
+        this.grid = this.createEmptyGrid();
+        this.score = 0;
+        this.isGameOver = false;
+
+        // 初期配置：おにぎり（Lv.1）を確実に1つ以上配置し、もう1つをランダム配置
+        const firstTile = this.spawnRandomTile({ forcedTier: 1 });
+        const secondTile = this.spawnRandomTile({ allowTierTwo: true });
+
+        const spawnedIds = [];
+        if (firstTile) spawnedIds.push(firstTile.id);
+        if (secondTile) spawnedIds.push(secondTile.id);
+
+        this.isGameOver = !this.hasAvailableMoves();
+        if (this.isGameOver) {
+          this.clearActiveSession();
+        } else {
+          this.persistActiveSession();
+        }
+
+        return {
+          moved: true,
+          scoreGain: 0,
+          mergedTiers: [],
+          spawnedIds,
+          mergedIds: [],
+          newMaxStageReached: false,
+          reachedLegend: false,
+          isGameOver: this.isGameOver,
+        };
+      }
+
+      getEmptyCells() {
+        const empty = [];
+        for (let r = 0; r < this.size; r++) {
+          for (let c = 0; c < this.size; c++) {
+            if (!this.grid[r][c]) {
+              empty.push({ row: r, col: c });
+            }
+          }
+        }
+        return empty;
+      }
+
+      spawnRandomTile(options = {}) {
+        const { allowTierTwo = true, forcedTier = null } = options;
+        const emptyCells = this.getEmptyCells();
+        if (emptyCells.length === 0) return null;
+
+        const chosenCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        const tier = forcedTier !== null
+          ? forcedTier
+          : (allowTierTwo && Math.random() < 0.15 ? 2 : 1);
+
+        const tile = {
+          id: this.nextTileId++,
+          tier,
+          row: chosenCell.row,
+          col: chosenCell.col,
+        };
+
+        this.grid[chosenCell.row][chosenCell.col] = tile;
+        this.recordStageReached(tier);
+        return tile;
+      }
+
+      recordStageReached(tier) {
+        if (tier > this.maxStage) {
+          this.maxStage = tier;
+          this.persistRecords();
+          return true;
+        }
+        return false;
+      }
+
+      /**
+       * 1ラインのスライド＆合体処理
+       * 1回の移動で複数合体が可能。合体済みタイルは同一移動内で再合体しない（[1,1,1] -> [2,1]）。
+       */
+      processLine(lineTiles) {
+        const nonNull = lineTiles.filter((t) => t !== null);
+        const result = [];
+        let lineChanged = false;
+        let lineScoreGain = 0;
+        const mergedTiers = [];
+        const mergedResultTiles = [];
+
+        let i = 0;
+        while (i < nonNull.length) {
+          const current = nonNull[i];
+          const next = nonNull[i + 1];
+
+          if (next && current.tier === next.tier && current.tier < this.maxTier) {
+            const mergedTier = current.tier + 1;
+            const stageInfo = SUSHI_STAGES[mergedTier - 1];
+            const points = stageInfo ? stageInfo.points : mergedTier * 20;
+
+            const mergedTile = {
+              id: this.nextTileId++,
+              tier: mergedTier,
+              row: 0,
+              col: 0,
+            };
+
+            result.push(mergedTile);
+            lineScoreGain += points;
+            mergedTiers.push(mergedTier);
+            mergedResultTiles.push(mergedTile);
+            lineChanged = true;
+            i += 2;
+          } else {
+            result.push({
+              id: current.id,
+              tier: current.tier,
+              row: 0,
+              col: 0,
+            });
+            i += 1;
+          }
+        }
+
+        while (result.length < this.size) {
+          result.push(null);
+        }
+
+        for (let idx = 0; idx < this.size; idx++) {
+          const beforeId = lineTiles[idx] ? lineTiles[idx].id : null;
+          const afterId = result[idx] ? result[idx].id : null;
+          if (beforeId !== afterId) {
+            lineChanged = true;
+            break;
+          }
+        }
+
+        return {
+          processedLine: result,
+          lineChanged,
+          lineScoreGain,
+          mergedTiers,
+          mergedResultTiles,
+        };
+      }
+
+      move(direction) {
+        if (this.isGameOver) {
+          return {
+            moved: false,
+            scoreGain: 0,
+            mergedTiers: [],
+            spawnedIds: [],
+            mergedIds: [],
+            newMaxStageReached: false,
+            reachedLegend: false,
+            isGameOver: true,
+          };
+        }
+
+        if (!Object.values(DIRECTIONS).includes(direction)) {
+          throw new Error(`Invalid direction: ${direction}`);
+        }
+
+        const nextGrid = this.createEmptyGrid();
+        let anyMoved = false;
+        let totalScoreGain = 0;
+        const allMergedTiers = [];
+        const mergedIds = [];
+
+        for (let lineIdx = 0; lineIdx < this.size; lineIdx++) {
+          const extracted = [];
+          for (let offset = 0; offset < this.size; offset++) {
+            const coord = this.mapLineIndexToCoord(direction, lineIdx, offset);
+            extracted.push(this.grid[coord.row][coord.col]);
+          }
+
+          const {
+            processedLine,
+            lineChanged,
+            lineScoreGain,
+            mergedTiers,
+            mergedResultTiles,
+          } = this.processLine(extracted);
+
+          if (lineChanged) {
+            anyMoved = true;
+          }
+          totalScoreGain += lineScoreGain;
+          allMergedTiers.push(...mergedTiers);
+
+          for (let offset = 0; offset < this.size; offset++) {
+            const tile = processedLine[offset];
+            if (tile) {
+              const coord = this.mapLineIndexToCoord(direction, lineIdx, offset);
+              tile.row = coord.row;
+              tile.col = coord.col;
+              nextGrid[coord.row][coord.col] = tile;
+            }
+          }
+
+          for (const mTile of mergedResultTiles) {
+            mergedIds.push(mTile.id);
+          }
+        }
+
+        if (!anyMoved) {
+          return {
+            moved: false,
+            scoreGain: 0,
+            mergedTiers: [],
+            spawnedIds: [],
+            mergedIds: [],
+            newMaxStageReached: false,
+            reachedLegend: false,
+            isGameOver: this.isGameOver,
+          };
+        }
+
+        this.grid = nextGrid;
+        this.score += totalScoreGain;
+        if (this.score > this.bestScore) {
+          this.bestScore = this.score;
+        }
+
+        let newMaxStageReached = false;
+        let reachedLegend = false;
+        for (const tier of allMergedTiers) {
+          if (this.recordStageReached(tier)) {
+            newMaxStageReached = true;
+          }
+          if (tier === this.maxTier) {
+            reachedLegend = true;
+          }
+        }
+
+        this.persistRecords();
+
+        const spawned = this.spawnRandomTile({ allowTierTwo: true });
+        const spawnedIds = spawned ? [spawned.id] : [];
+
+        this.isGameOver = !this.hasAvailableMoves();
+        if (this.isGameOver) {
+          this.clearActiveSession();
+        } else {
+          this.persistActiveSession();
+        }
+
+        return {
+          moved: true,
+          scoreGain: totalScoreGain,
+          mergedTiers: allMergedTiers,
+          spawnedIds,
+          mergedIds,
+          newMaxStageReached,
+          reachedLegend,
+          isGameOver: this.isGameOver,
+        };
+      }
+
+      mapLineIndexToCoord(direction, lineIdx, offset) {
+        switch (direction) {
+          case DIRECTIONS.LEFT:
+            return { row: lineIdx, col: offset };
+          case DIRECTIONS.RIGHT:
+            return { row: lineIdx, col: this.size - 1 - offset };
+          case DIRECTIONS.UP:
+            return { row: offset, col: lineIdx };
+          case DIRECTIONS.DOWN:
+            return { row: this.size - 1 - offset, col: lineIdx };
+          default:
+            return { row: 0, col: 0 };
+        }
+      }
+
+      hasAvailableMoves() {
+        for (let r = 0; r < this.size; r++) {
+          for (let c = 0; c < this.size; c++) {
+            const current = this.grid[r][c];
+            if (!current) return true;
+            if (c + 1 < this.size) {
+              const right = this.grid[r][c + 1];
+              if (right && right.tier === current.tier && current.tier < this.maxTier) {
+                return true;
+              }
+            }
+            if (r + 1 < this.size) {
+              const down = this.grid[r + 1][c];
+              if (down && down.tier === current.tier && current.tier < this.maxTier) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+      getAllTiles() {
+        const list = [];
+        for (let r = 0; r < this.size; r++) {
+          for (let c = 0; c < this.size; c++) {
+            if (this.grid[r][c]) {
+              list.push(this.grid[r][c]);
+            }
+          }
+        }
+        return list;
+      }
+
+      getState() {
+        return {
+          size: this.size,
+          score: this.score,
+          bestScore: this.bestScore,
+          maxStage: this.maxStage,
+          isGameOver: this.isGameOver,
+          tiles: this.getAllTiles(),
+        };
+      }
+    }
+
+    /* ======================================================================
+       3. SushiMergeUI：描画・演出・スワイプ＆キーボード入力制御
+       ====================================================================== */
+    class SushiMergeUI {
+      constructor(engine) {
+        this.engine = engine;
+
+        this.dom = {
+          scoreValue: document.getElementById('scoreValue'),
+          bestScoreValue: document.getElementById('bestScoreValue'),
+          scoreDeltaPopup: document.getElementById('scoreDeltaPopup'),
+          headerMaxStageIcon: document.getElementById('headerMaxStageIcon'),
+          headerMaxStageLabel: document.getElementById('headerMaxStageLabel'),
+          boardFrame: document.getElementById('boardFrame'),
+          gridBackground: document.getElementById('gridBackground'),
+          tileLayer: document.getElementById('tileLayer'),
+          boardToast: document.getElementById('boardToast'),
+          gameOverOverlay: document.getElementById('gameOverOverlay'),
+          resultStageIcon: document.getElementById('resultStageIcon'),
+          resultStageName: document.getElementById('resultStageName'),
+          resultFinalScore: document.getElementById('resultFinalScore'),
+          resultBestScore: document.getElementById('resultBestScore'),
+          restartButton: document.getElementById('restartButton'),
+          retryButton: document.getElementById('retryButton'),
+          howToPlayButton: document.getElementById('howToPlayButton'),
+          howToPlayModal: document.getElementById('howToPlayModal'),
+          closeModalButton: document.getElementById('closeModalButton'),
+          modalStartButton: document.getElementById('modalStartButton'),
+          resetSavedDataButton: document.getElementById('resetSavedDataButton'),
+          evolutionChartList: document.getElementById('evolutionChartList'),
+        };
+
+        // 入力クールダウン（90ms）＆安全タイムアウト（450ms）
+        this.INPUT_COOLDOWN_MS = 90;
+        this.INPUT_SAFETY_TIMEOUT_MS = 450;
+        this.isAnimating = false;
+        this.cooldownTimer = null;
+        this.safetyLockTimer = null;
+        this.inputQueue = [];
+        this.toastTimer = null;
+        this.scorePopupTimer = null;
+        this.shakeTimer = null;
+        this.modalOpen = false;
+
+        // シングルタッチ追跡
+        this.activeTouchId = null;
+        this.touchStartX = null;
+        this.touchStartY = null;
+        this.touchActive = false;
+        this.swipeLockedDirection = null;
+        this.SWIPE_THRESHOLD_PX = 24;
+
+        this.buildBackgroundCells();
+        this.buildEvolutionChart();
+        this.bindEvents();
+
+        const initialState = this.engine.getState();
+        this.render(initialState, {
+          spawnedIds: initialState.tiles.map((t) => t.id),
+          mergedIds: [],
+          scoreGain: 0,
+        });
+
+        if (initialState.isGameOver) {
+          this.renderGameOver(initialState);
+        }
+      }
+
+      buildBackgroundCells() {
+        const fragment = document.createDocumentFragment();
+        const total = this.engine.size * this.engine.size;
+        for (let i = 0; i < total; i++) {
+          const cell = document.createElement('div');
+          cell.className = 'rounded-2xl bg-cream-card/90 border border-hinoki-dark/25 shadow-inner';
+          fragment.appendChild(cell);
+        }
+        this.dom.gridBackground.innerHTML = '';
+        this.dom.gridBackground.appendChild(fragment);
+      }
+
+      buildEvolutionChart() {
+        const fragment = document.createDocumentFragment();
+        SUSHI_STAGES.forEach((stage, index) => {
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between gap-2.5 bg-cream-card border border-hinoki-frame/35 rounded-2xl p-2';
+
+          const left = document.createElement('div');
+          left.className = 'flex items-center gap-2.5 min-w-0';
+
+          const iconBox = document.createElement('div');
+          iconBox.className = 'w-11 h-11 rounded-xl flex items-center justify-center p-1 shrink-0 border';
+          iconBox.style.background = stage.tileBg;
+          iconBox.style.borderColor = stage.borderColor;
+          iconBox.innerHTML = getSushiStageSVG(stage.tier);
+
+          const textBox = document.createElement('div');
+          textBox.className = 'min-w-0';
+
+          const tierBadge = document.createElement('span');
+          tierBadge.className = 'inline-block text-[10px] font-extrabold px-1.5 py-0.5 rounded-md mr-1';
+          tierBadge.style.backgroundColor = stage.badgeBg;
+          tierBadge.style.color = stage.badgeText;
+          tierBadge.textContent = `Lv.${stage.tier}`;
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'font-extrabold text-xs sm:text-sm text-sumi';
+          nameSpan.textContent = stage.name;
+
+          const subLine = document.createElement('div');
+          subLine.className = 'text-[11px] text-sumi-muted mt-0.5';
+          subLine.textContent = index < SUSHI_STAGES.length - 1
+            ? `合体ボーナス +${stage.points}pt`
+            : `最高到達段階（+${stage.points}pt）`;
+
+          textBox.appendChild(tierBadge);
+          textBox.appendChild(nameSpan);
+          textBox.appendChild(subLine);
+
+          left.appendChild(iconBox);
+          left.appendChild(textBox);
+
+          const rightTag = document.createElement('div');
+          rightTag.className = 'text-[11px] font-bold text-sumi-muted shrink-0 pr-1';
+          rightTag.textContent = stage.tier === 12 ? '👑 伝説' : `#${stage.tier}`;
+
+          item.appendChild(left);
+          item.appendChild(rightTag);
+          fragment.appendChild(item);
+        });
+
+        this.dom.evolutionChartList.innerHTML = '';
+        this.dom.evolutionChartList.appendChild(fragment);
+      }
+
+      bindEvents() {
+        this.dom.boardFrame.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.dom.boardFrame.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.dom.boardFrame.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        this.dom.boardFrame.addEventListener('touchcancel', (e) => this.handleTouchCancel(e));
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            this.resetTouchTracking();
+            if (!this.engine.isGameOver) {
+              this.engine.persistActiveSession();
+            }
+          } else {
+            this.forceReleaseInputLock();
+            this.render(this.engine.getState(), { spawnedIds: [], mergedIds: [], scoreGain: 0 });
+          }
+        });
+
+        window.addEventListener('pagehide', () => {
+          if (!this.engine.isGameOver) {
+            this.engine.persistActiveSession();
+          }
+        });
+
+        window.addEventListener('keydown', (e) => this.handleKeyDown(e));
+
+        this.dom.restartButton.addEventListener('click', () => this.restartGame());
+        this.dom.retryButton.addEventListener('click', () => this.restartGame());
+        this.dom.howToPlayButton.addEventListener('click', () => this.openHowToPlayModal());
+        this.dom.closeModalButton.addEventListener('click', () => this.closeHowToPlayModal());
+        this.dom.modalStartButton.addEventListener('click', () => this.closeHowToPlayModal());
+        this.dom.resetSavedDataButton.addEventListener('click', () => this.resetSavedData());
+
+        this.dom.howToPlayModal.addEventListener('click', (e) => {
+          if (e.target === this.dom.howToPlayModal) {
+            this.closeHowToPlayModal();
+          }
+        });
+
+        window.addEventListener('resize', () => {
+          window.requestAnimationFrame(() => {
+            this.render(this.engine.getState(), { spawnedIds: [], mergedIds: [], scoreGain: 0 });
+          });
+        });
+      }
+
+      findTrackedTouch(touchList) {
+        if (this.activeTouchId === null || !touchList) return null;
+        for (let i = 0; i < touchList.length; i++) {
+          if (touchList[i].identifier === this.activeTouchId) {
+            return touchList[i];
+          }
+        }
+        return null;
+      }
+
+      handleTouchStart(event) {
+        if (this.modalOpen || this.engine.isGameOver) return;
+
+        if (this.touchActive || event.touches.length !== 1) {
+          this.resetTouchTracking();
+          return;
+        }
+
+        const touch = event.changedTouches[0] || event.touches[0];
+        if (!touch) return;
+
+        this.activeTouchId = touch.identifier;
+        this.touchStartX = touch.clientX;
+        this.touchStartY = touch.clientY;
+        this.touchActive = true;
+        this.swipeLockedDirection = null;
+      }
+
+      handleTouchMove(event) {
+        if (!this.touchActive || this.modalOpen) return;
+
+        if (event.touches.length > 1) {
+          this.resetTouchTracking();
+          return;
+        }
+
+        const touch = this.findTrackedTouch(event.touches);
+        if (!touch) return;
+
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+
+        if (this.swipeLockedDirection) return;
+
+        const dx = touch.clientX - this.touchStartX;
+        const dy = touch.clientY - this.touchStartY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+
+        if (Math.max(absX, absY) < this.SWIPE_THRESHOLD_PX) {
+          return;
+        }
+
+        if (absX > absY) {
+          this.swipeLockedDirection = dx > 0 ? DIRECTIONS.RIGHT : DIRECTIONS.LEFT;
+        } else {
+          this.swipeLockedDirection = dy > 0 ? DIRECTIONS.DOWN : DIRECTIONS.UP;
+        }
+
+        this.enqueueDirection(this.swipeLockedDirection);
+        this.resetTouchTracking();
+      }
+
+      handleTouchEnd(event) {
+        if (!this.touchActive) return;
+
+        const endedTouch = this.findTrackedTouch(event.changedTouches);
+        if (!endedTouch) {
+          if (event.touches.length === 0) {
+            this.resetTouchTracking();
+          }
+          return;
+        }
+
+        if (!this.swipeLockedDirection) {
+          const dx = endedTouch.clientX - this.touchStartX;
+          const dy = endedTouch.clientY - this.touchStartY;
+          const absX = Math.abs(dx);
+          const absY = Math.abs(dy);
+
+          if (Math.max(absX, absY) >= this.SWIPE_THRESHOLD_PX) {
+            const dir = absX > absY
+              ? (dx > 0 ? DIRECTIONS.RIGHT : DIRECTIONS.LEFT)
+              : (dy > 0 ? DIRECTIONS.DOWN : DIRECTIONS.UP);
+            this.enqueueDirection(dir);
+          }
+        }
+        this.resetTouchTracking();
+      }
+
+      handleTouchCancel(event) {
+        if (this.findTrackedTouch(event.changedTouches) || event.touches.length === 0) {
+          this.resetTouchTracking();
+        }
+      }
+
+      resetTouchTracking() {
+        this.activeTouchId = null;
+        this.touchStartX = null;
+        this.touchStartY = null;
+        this.touchActive = false;
+        this.swipeLockedDirection = null;
+      }
+
+      handleKeyDown(event) {
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+        if (event.key === 'Escape' && this.modalOpen) {
+          event.preventDefault();
+          this.closeHowToPlayModal();
+          return;
+        }
+
+        if (this.modalOpen || this.engine.isGameOver) return;
+
+        let dir = null;
+        switch (event.key) {
+          case 'ArrowUp':
+          case 'w':
+          case 'W':
+            dir = DIRECTIONS.UP;
+            break;
+          case 'ArrowDown':
+          case 's':
+          case 'S':
+            dir = DIRECTIONS.DOWN;
+            break;
+          case 'ArrowLeft':
+          case 'a':
+          case 'A':
+            dir = DIRECTIONS.LEFT;
+            break;
+          case 'ArrowRight':
+          case 'd':
+          case 'D':
+            dir = DIRECTIONS.RIGHT;
+            break;
+          default:
+            return;
+        }
+
+        event.preventDefault();
+        this.enqueueDirection(dir);
+      }
+
+      releaseInputLockAndFlush() {
+        if (this.cooldownTimer) {
+          window.clearTimeout(this.cooldownTimer);
+          this.cooldownTimer = null;
+        }
+        if (this.safetyLockTimer) {
+          window.clearTimeout(this.safetyLockTimer);
+          this.safetyLockTimer = null;
+        }
+        this.isAnimating = false;
+
+        const nextDir = this.inputQueue.shift();
+        if (nextDir && !this.modalOpen && !this.engine.isGameOver) {
+          this.executeMove(nextDir);
+        }
+      }
+
+      forceReleaseInputLock() {
+        if (this.cooldownTimer) {
+          window.clearTimeout(this.cooldownTimer);
+          this.cooldownTimer = null;
+        }
+        if (this.safetyLockTimer) {
+          window.clearTimeout(this.safetyLockTimer);
+          this.safetyLockTimer = null;
+        }
+        this.inputQueue = [];
+        this.isAnimating = false;
+      }
+
+      enqueueDirection(direction) {
+        if (this.modalOpen || this.engine.isGameOver) return;
+
+        if (this.isAnimating) {
+          if (this.inputQueue.length === 0) {
+            this.inputQueue.push(direction);
+          }
+          return;
+        }
+
+        this.executeMove(direction);
+      }
+
+      executeMove(direction) {
+        this.isAnimating = true;
+
+        if (this.safetyLockTimer) {
+          window.clearTimeout(this.safetyLockTimer);
+        }
+        this.safetyLockTimer = window.setTimeout(() => {
+          this.releaseInputLockAndFlush();
+        }, this.INPUT_SAFETY_TIMEOUT_MS);
+
+        try {
+          const result = this.engine.move(direction);
+          const state = this.engine.getState();
+
+          const hasHighStageMerge = Array.isArray(result.mergedTiers) &&
+            result.mergedTiers.some((tier) => tier >= 7);
+
+          this.render(state, {
+            spawnedIds: result.spawnedIds,
+            mergedIds: result.mergedIds,
+            scoreGain: result.scoreGain,
+            highStageMerge: hasHighStageMerge,
+          });
+
+          if (result.moved) {
+            if (result.reachedLegend) {
+              this.showBoardToast('👑 伝説の超豪華寿司盛りに到達！');
+            } else if (result.newMaxStageReached) {
+              const stageInfo = SUSHI_STAGES[state.maxStage - 1];
+              this.showBoardToast(`✨ 新進化「${stageInfo.name}」達成！`);
+            }
+          }
+
+          if (result.isGameOver) {
+            window.setTimeout(() => {
+              this.renderGameOver(this.engine.getState());
+            }, 220);
+          }
+        } catch (err) {
+          console.error('Move execution error:', err);
+          this.forceReleaseInputLock();
+          return;
+        }
+
+        if (this.cooldownTimer) {
+          window.clearTimeout(this.cooldownTimer);
+        }
+        this.cooldownTimer = window.setTimeout(() => {
+          this.releaseInputLockAndFlush();
+        }, this.INPUT_COOLDOWN_MS);
+      }
+
+      restartGame() {
+        this.forceReleaseInputLock();
+        this.hideGameOver();
+
+        const initResult = this.engine.startNewGame();
+        const state = this.engine.getState();
+        this.render(state, {
+          spawnedIds: initResult.spawnedIds,
+          mergedIds: [],
+          scoreGain: 0,
+        });
+        this.showBoardToast('🍙 おにぎりから再スタート！');
+      }
+
+      resetSavedData() {
+        this.forceReleaseInputLock();
+        this.hideGameOver();
+        this.closeHowToPlayModal();
+
+        const initResult = this.engine.resetAllSavedData();
+        const state = this.engine.getState();
+        this.render(state, {
+          spawnedIds: initResult.spawnedIds,
+          mergedIds: [],
+          scoreGain: 0,
+        });
+        this.showBoardToast('🔄 保存データを初期化しました');
+      }
+
+      openHowToPlayModal() {
+        this.modalOpen = true;
+        this.resetTouchTracking();
+        this.dom.howToPlayModal.classList.remove('hidden');
+      }
+
+      closeHowToPlayModal() {
+        this.modalOpen = false;
+        this.dom.howToPlayModal.classList.add('hidden');
+      }
+
+      showScoreGain(points) {
+        const el = this.dom.scoreDeltaPopup;
+        if (!el || !points || points <= 0) return;
+
+        el.textContent = `+${points.toLocaleString()}`;
+        el.classList.remove('animate-score-gain');
+        void el.offsetWidth;
+        el.classList.add('animate-score-gain');
+
+        if (this.scorePopupTimer) {
+          window.clearTimeout(this.scorePopupTimer);
+        }
+        this.scorePopupTimer = window.setTimeout(() => {
+          el.classList.remove('animate-score-gain');
+        }, 760);
+      }
+
+      showBoardToast(message) {
+        const el = this.dom.boardToast;
+        if (!el || !message) return;
+
+        el.textContent = message;
+        el.classList.remove('opacity-0');
+        el.classList.add('opacity-100');
+
+        if (this.toastTimer) {
+          window.clearTimeout(this.toastTimer);
+        }
+        this.toastTimer = window.setTimeout(() => {
+          el.classList.remove('opacity-100');
+          el.classList.add('opacity-0');
+        }, 1500);
+      }
+
+      triggerHighStageShake() {
+        const frame = this.dom.boardFrame;
+        if (!frame) return;
+
+        frame.classList.remove('animate-board-shake');
+        void frame.offsetWidth;
+        frame.classList.add('animate-board-shake');
+
+        if (this.shakeTimer) {
+          window.clearTimeout(this.shakeTimer);
+        }
+        this.shakeTimer = window.setTimeout(() => {
+          frame.classList.remove('animate-board-shake');
+        }, 270);
+      }
+
+      render(state, effects = {}) {
+        const {
+          spawnedIds = [],
+          mergedIds = [],
+          scoreGain = 0,
+          highStageMerge = false,
+        } = effects;
+
+        const spawnedSet = new Set(spawnedIds);
+        const mergedSet = new Set(mergedIds);
+
+        this.dom.scoreValue.textContent = Number(state.score || 0).toLocaleString();
+        this.dom.bestScoreValue.textContent = Number(state.bestScore || 0).toLocaleString();
+
+        if (scoreGain > 0) {
+          this.showScoreGain(scoreGain);
+        }
+        if (highStageMerge) {
+          this.triggerHighStageShake();
+        }
+
+        const safeMaxTier = Number.isInteger(state.maxStage) && state.maxStage >= 1 && state.maxStage <= 12
+          ? state.maxStage
+          : 1;
+        const maxStageInfo = SUSHI_STAGES[safeMaxTier - 1] || SUSHI_STAGES[0];
+        this.dom.headerMaxStageIcon.innerHTML = getSushiStageSVG(maxStageInfo.tier);
+        this.dom.headerMaxStageLabel.textContent = `Lv.${maxStageInfo.tier} ${maxStageInfo.shortName}`;
+
+        const layerRect = this.dom.tileLayer.getBoundingClientRect();
+        const size = this.engine.size;
+        const gapPx = layerRect.width > 0 && layerRect.width < 320 ? 8 : 10;
+        const effectiveSize = layerRect.width > 20 ? layerRect.width : 340;
+        const cellSize = Math.max(44, (effectiveSize - gapPx * (size - 1)) / size);
+
+        const fragment = document.createDocumentFragment();
+        const tiles = Array.isArray(state.tiles) ? state.tiles : [];
+
+        for (const tile of tiles) {
+          const stage = SUSHI_STAGES[tile.tier - 1] || SUSHI_STAGES[0];
+          const leftPx = tile.col * (cellSize + gapPx);
+          const topPx = tile.row * (cellSize + gapPx);
+
+          const tileEl = document.createElement('div');
+          tileEl.dataset.tileId = String(tile.id);
+          tileEl.className = 'absolute rounded-2xl flex flex-col items-center justify-between p-1 sm:p-1.5 shadow-tile transition-[left,top] duration-110 ease-out';
+          tileEl.style.width = `${cellSize}px`;
+          tileEl.style.height = `${cellSize}px`;
+          tileEl.style.left = `${leftPx}px`;
+          tileEl.style.top = `${topPx}px`;
+          tileEl.style.background = stage.tileBg;
+          tileEl.style.border = `1.5px solid ${stage.borderColor}`;
+
+          if (tile.tier === 12) {
+            tileEl.classList.add('animate-legendary');
+          }
+
+          const innerEl = document.createElement('div');
+          innerEl.className = 'w-full h-full flex flex-col items-center justify-between relative';
+
+          if (spawnedSet.has(tile.id)) {
+            innerEl.classList.add('animate-tile-spawn');
+          } else if (mergedSet.has(tile.id)) {
+            innerEl.classList.add('animate-tile-merge');
+
+            const ringEl = document.createElement('div');
+            ringEl.className = 'pointer-events-none absolute inset-0 rounded-2xl border-2 animate-merge-ring';
+            ringEl.style.borderColor = stage.accent;
+            innerEl.appendChild(ringEl);
+          }
+
+          const topBar = document.createElement('div');
+          topBar.className = 'w-full flex items-center justify-between px-0.5 leading-none shrink-0';
+
+          const lvTag = document.createElement('span');
+          lvTag.className = 'text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none';
+          lvTag.style.backgroundColor = stage.badgeBg;
+          lvTag.style.color = stage.badgeText;
+          lvTag.textContent = `Lv.${tile.tier}`;
+
+          topBar.appendChild(lvTag);
+
+          const artBox = document.createElement('div');
+          artBox.className = 'flex-1 w-full min-h-0 flex items-center justify-center px-1 py-0.5';
+          const svgWrapper = document.createElement('div');
+          svgWrapper.className = 'w-[80%] h-[80%] max-w-[60px] max-h-[60px] flex items-center justify-center';
+          svgWrapper.innerHTML = getSushiStageSVG(tile.tier);
+          artBox.appendChild(svgWrapper);
+
+          const nameLabel = document.createElement('div');
+          nameLabel.className = 'w-full text-center text-[10px] sm:text-[11px] font-extrabold text-sumi leading-tight truncate px-0.5 shrink-0';
+          nameLabel.textContent = stage.shortName;
+
+          innerEl.appendChild(topBar);
+          innerEl.appendChild(artBox);
+          innerEl.appendChild(nameLabel);
+          tileEl.appendChild(innerEl);
+          fragment.appendChild(tileEl);
+        }
+
+        this.dom.tileLayer.innerHTML = '';
+        this.dom.tileLayer.appendChild(fragment);
+      }
+
+      renderGameOver(state) {
+        const safeMaxTier = Number.isInteger(state.maxStage) && state.maxStage >= 1 && state.maxStage <= 12
+          ? state.maxStage
+          : 1;
+        const stage = SUSHI_STAGES[safeMaxTier - 1] || SUSHI_STAGES[0];
+        this.dom.resultStageIcon.innerHTML = `<div class="w-9 h-9">${getSushiStageSVG(stage.tier)}</div>`;
+        this.dom.resultStageName.textContent = `Lv.${stage.tier} ${stage.name}`;
+        this.dom.resultFinalScore.textContent = Number(state.score || 0).toLocaleString();
+        this.dom.resultBestScore.textContent = Number(state.bestScore || 0).toLocaleString();
+        this.dom.gameOverOverlay.classList.remove('hidden');
+      }
+
+      hideGameOver() {
+        this.dom.gameOverOverlay.classList.add('hidden');
+      }
+    }
+
+    /* ======================================================================
+       起動エントリポイント（破損データや描画タイミングにも強く起動）
+       ====================================================================== */
+    function bootSushiMerge() {
+      try {
+        const gameEngine = new SushiMergeEngine(4);
+        const uiController = new SushiMergeUI(gameEngine);
+        // レイアウト確定後の1フレーム目にも確実にタイルサイズを再同期
+        window.requestAnimationFrame(() => {
+          uiController.render(gameEngine.getState(), { spawnedIds: [], mergedIds: [], scoreGain: 0 });
+        });
+      } catch (fatalError) {
+        console.error('Failed to initialize SUSHI MERGE:', fatalError);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', bootSushiMerge, { once: true });
+    } else {
+      bootSushiMerge();
+    }
+  </script>
+</body>
+</html>
